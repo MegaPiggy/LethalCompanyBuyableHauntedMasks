@@ -1,7 +1,7 @@
 {
   "name": "BuyableHauntedMasks",
   "version_number": "1.0.0",
-  "website_url": "",
+  "website_url": "https://github.com/MegaPiggy/LethalCompanyBuyableHauntedMasks",
   "description": "Adds both comedy and tragedy mask to the store each for 30 credits",
   "dependencies": [
     "BepInEx-BepInExPack-5.4.2100",
