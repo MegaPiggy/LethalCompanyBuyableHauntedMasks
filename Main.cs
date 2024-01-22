@@ -8,15 +8,17 @@ using LethalLib.Modules;
 using UnityEngine.SceneManagement;
 using BepInEx.Configuration;
 using Dissonance;
+using System;
 
 namespace BuyableHauntedMasks
 {
+    [BepInDependency("evaisa.lethallib", "0.13.2")]
     [BepInPlugin(modGUID, modName, modVersion)]
     public class BuyableHauntedMasks : BaseUnityPlugin
     {
         private const string modGUID = "MegaPiggy.BuyableHauntedMasks";
         private const string modName = "Buyable Haunted Masks";
-        private const string modVersion = "1.0.1";
+        private const string modVersion = "1.0.2";
 
         private readonly Harmony harmony = new Harmony(modGUID);
 
@@ -25,8 +27,8 @@ namespace BuyableHauntedMasks
         private static ManualLogSource LoggerInstance => Instance.Logger;
 
         public List<Item> AllItems => Resources.FindObjectsOfTypeAll<Item>().Concat(UnityEngine.Object.FindObjectsByType<Item>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID)).ToList();
-        public Item Comedy => AllItems.FirstOrDefault(item => item.name.Contains("Comedy"));
-        public Item Tragedy => AllItems.FirstOrDefault(item => item.name.Contains("Tragedy"));
+        public Item Comedy => AllItems.FirstOrDefault(item => item.name.Equals("ComedyMask"));
+        public Item Tragedy => AllItems.FirstOrDefault(item => item.name.Equals("TragedyMask"));
         public Item ComedyClone { get; private set; }
         public Item TragedyClone { get; private set; }
 
@@ -82,14 +84,21 @@ namespace BuyableHauntedMasks
             prefab.tag = "PhysicsProp";
             prefab.layer = LayerMask.NameToLayer("Props");
             cube.layer = LayerMask.NameToLayer("Props");
-            GameObject scanNode = GameObject.Instantiate<GameObject>(Items.scanNodePrefab, prefab.transform);
-            scanNode.name = "ScanNode";
-            scanNode.transform.localPosition = new Vector3(0f, 0f, 0f);
-            scanNode.transform.localScale *= 2;
-            ScanNodeProperties properties = scanNode.GetComponent<ScanNodeProperties>();
-            properties.nodeType = 1;
-            properties.headerText = "Error";
-            properties.subText = $"A mod is incompatible with {modName}";
+            try
+            {
+                GameObject scanNode = GameObject.Instantiate<GameObject>(Items.scanNodePrefab, prefab.transform);
+                scanNode.name = "ScanNode";
+                scanNode.transform.localPosition = new Vector3(0f, 0f, 0f);
+                scanNode.transform.localScale *= 2;
+                ScanNodeProperties properties = scanNode.GetComponent<ScanNodeProperties>();
+                properties.nodeType = 1;
+                properties.headerText = "Error";
+                properties.subText = $"A mod is incompatible with {modName}";
+            }
+            catch (Exception e)
+            {
+                LoggerInstance.LogError(e.ToString());
+            }
             prefab.transform.localScale = Vector3.one / 2;
             return nonScrap;
         }
