@@ -19,7 +19,7 @@ namespace BuyableHauntedMasks
     {
         private const string modGUID = "MegaPiggy.BuyableHauntedMasks";
         private const string modName = "Buyable Haunted Masks";
-        private const string modVersion = "1.0.3";
+        private const string modVersion = "1.1.0";
 
         private readonly Harmony harmony = new Harmony(modGUID);
 
@@ -27,22 +27,28 @@ namespace BuyableHauntedMasks
 
         private static ManualLogSource LoggerInstance => Instance.Logger;
 
-        public List<Item> AllItems => Resources.FindObjectsOfTypeAll<Item>().Concat(UnityEngine.Object.FindObjectsByType<Item>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID)).ToList();
-        public Item Comedy => AllItems.FirstOrDefault(item => item.name.Equals("ComedyMask"));
-        public Item Tragedy => AllItems.FirstOrDefault(item => item.name.Equals("TragedyMask"));
-        public Item ComedyClone { get; private set; }
-        public Item TragedyClone { get; private set; }
+        public static List<Item> AllItems => Resources.FindObjectsOfTypeAll<Item>().Concat(UnityEngine.Object.FindObjectsByType<Item>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID)).ToList();
+        public static Item Comedy => AllItems.FirstOrDefault(item => item.name.Equals("ComedyMask"));
+        public static Item Tragedy => AllItems.FirstOrDefault(item => item.name.Equals("TragedyMask"));
+        public static Item ComedyClone { get; private set; }
+        public static GameObject ComedyObjectClone { get; private set; }
+        public static Item TragedyClone { get; private set; }
+        public static GameObject TragedyObjectClone { get; private set; }
 
 
-        private ConfigEntry<int> ComedyMaskPriceConfig;
-        public int ComedyMaskPrice => ComedyMaskPriceConfig.Value;
+        private static ConfigEntry<int> ComedyMaskPriceConfig;
+        public static int ComedyMaskPrice => ComedyMaskPriceConfig.Value;
 
-        private ConfigEntry<int> TragedyMaskPriceConfig;
-        public int TragedyMaskPrice => TragedyMaskPriceConfig.Value;
+        private static ConfigEntry<int> TragedyMaskPriceConfig;
+        public static int TragedyMaskPrice => TragedyMaskPriceConfig.Value;
 
         private void Awake()
         {
-            if (Instance == null) Instance = this;
+            if (Instance == null)
+            {
+                DontDestroyOnLoad(this);
+                Instance = this;
+            }
             harmony.PatchAll();
             ComedyMaskPriceConfig = Config.Bind("Prices", "ComedyMaskPrice", 30, "Credits needed to buy comedy mask");
             TragedyMaskPriceConfig = Config.Bind("Prices", "TragedyMaskPrice", 30, "Credits needed to buy tragedy mask");
@@ -54,7 +60,7 @@ namespace BuyableHauntedMasks
             Logger.LogInfo($"Plugin {modName} is loaded with version {modVersion}!");
         }
 
-        private Item MakeNonScrap(int price, string name = "")
+        private static Item MakeNonScrap(int price, string name = "")
         {
             Item nonScrap = ScriptableObject.CreateInstance<Item>();
             DontDestroyOnLoad(nonScrap);
@@ -104,12 +110,16 @@ namespace BuyableHauntedMasks
             return nonScrap;
         }
 
-        private void CloneNonScrap(Item original, Item clone, int price)
+        private static GameObject CloneNonScrap(Item original, Item clone, int price)
         {
-            DontDestroyOnLoad(original.spawnPrefab);
+            var prefab = NetworkPrefabs.CloneNetworkPrefab(original.spawnPrefab);
+            DontDestroyOnLoad(prefab);
             CopyFields(original, clone);
+            prefab.GetComponent<GrabbableObject>().itemProperties = clone;
+            clone.spawnPrefab = prefab;
             clone.name = "Buyable" + original.name;
             clone.creditsWorth = price;
+            return prefab;
         }
 
         public static void CopyFields(Item source, Item destination)
@@ -123,7 +133,7 @@ namespace BuyableHauntedMasks
 
         private static Dictionary<string, TerminalNode> infoNodes = new Dictionary<string, TerminalNode>();
 
-        private TerminalNode CreateInfoNode(string name, string description)
+        private static TerminalNode CreateInfoNode(string name, string description)
         {
             if (infoNodes.ContainsKey(name)) return infoNodes[name];
             TerminalNode node = ScriptableObject.CreateInstance<TerminalNode>();
@@ -134,31 +144,33 @@ namespace BuyableHauntedMasks
             return node;
         }
 
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             CloneComedy();
             CloneTragedy();
         }
 
-        private void CloneComedy()
+        private static void CloneComedy()
         {
             if (Comedy == null) return;
-            CloneNonScrap(Comedy, ComedyClone, ComedyMaskPrice);
+            if (ComedyObjectClone != null) return;
+            ComedyObjectClone = CloneNonScrap(Comedy, ComedyClone, ComedyMaskPrice);
         }
 
-        private void AddComedyToShop()
+        private static void AddComedyToShop()
         {
             Items.RegisterShopItem(ComedyClone, price: ComedyMaskPrice, itemInfo: CreateInfoNode("ComedyMask", "Haunted mask. It has a 65% chance to turn you into zombie every 5 seconds."));
             LoggerInstance.LogInfo($"Comedy Mask added to Shop for {ComedyMaskPrice} credits");
         }
 
-        private void CloneTragedy()
+        private static void CloneTragedy()
         {
             if (Tragedy == null) return;
-            CloneNonScrap(Tragedy, TragedyClone, TragedyMaskPrice);
+            if (TragedyObjectClone != null) return;
+            TragedyObjectClone = CloneNonScrap(Tragedy, TragedyClone, TragedyMaskPrice);
         }
 
-        private void AddTragedyToShop()
+        private static void AddTragedyToShop()
         {
             Items.RegisterShopItem(TragedyClone, price: TragedyMaskPrice, itemInfo: CreateInfoNode("TragedyMask", "Haunted mask. It has a 65% chance to turn you into zombie every 5 seconds. You cannot take this off once you put it on."));
             LoggerInstance.LogInfo($"Tragedy Mask added to Shop for {TragedyMaskPrice} credits");
