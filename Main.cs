@@ -7,9 +7,12 @@ using UnityEngine;
 using LethalLib.Modules;
 using UnityEngine.SceneManagement;
 using BepInEx.Configuration;
-using Dissonance;
-using System;
+using Unity.Netcode;
 using System.Reflection;
+using System;
+using NetworkPrefabs = LethalLib.Modules.NetworkPrefabs;
+using Unity.Collections;
+using GameNetcodeStuff;
 
 namespace BuyableHauntedMasks
 {
@@ -37,10 +40,16 @@ namespace BuyableHauntedMasks
 
 
         private static ConfigEntry<int> ComedyMaskPriceConfig;
-        public static int ComedyMaskPrice => ComedyMaskPriceConfig.Value;
+        public static int ComedyMaskPriceLocal => ComedyMaskPriceConfig.Value;
+        internal static int ComedyMaskPriceRemote = -1;
+        public static int ComedyMaskPrice => ComedyMaskPriceRemote > -1 ? ComedyMaskPriceRemote : ComedyMaskPriceLocal;
 
         private static ConfigEntry<int> TragedyMaskPriceConfig;
-        public static int TragedyMaskPrice => TragedyMaskPriceConfig.Value;
+        public static int TragedyMaskPriceLocal => TragedyMaskPriceConfig.Value;
+        internal static int TragedyMaskPriceRemote = -1;
+        public static int TragedyMaskPrice => TragedyMaskPriceRemote > -1 ? TragedyMaskPriceRemote : TragedyMaskPriceLocal;
+        private static bool IsHost => NetworkManager.Singleton.IsHost;
+        private static ulong LocalClientId => NetworkManager.Singleton.LocalClientId;
 
         private void Awake()
         {
@@ -163,6 +172,13 @@ namespace BuyableHauntedMasks
             LoggerInstance.LogInfo($"Comedy Mask added to Shop for {ComedyMaskPrice} credits");
         }
 
+        private static void UpdateComedyPrice()
+        {
+            ComedyClone.creditsWorth = ComedyMaskPrice;
+            Items.UpdateShopItemPrice(ComedyClone, price: ComedyMaskPrice);
+            LoggerInstance.LogInfo($"Comedy Mask price updated to {ComedyMaskPrice} credits");
+        }
+
         private static void CloneTragedy()
         {
             if (Tragedy == null) return;
@@ -174,6 +190,108 @@ namespace BuyableHauntedMasks
         {
             Items.RegisterShopItem(TragedyClone, price: TragedyMaskPrice, itemInfo: CreateInfoNode("TragedyMask", "Haunted mask. It has a 65% chance to turn you into zombie every 5 seconds. You cannot take this off once you put it on."));
             LoggerInstance.LogInfo($"Tragedy Mask added to Shop for {TragedyMaskPrice} credits");
+        }
+
+        private static void UpdateTragedyPrice()
+        {
+            TragedyClone.creditsWorth = TragedyMaskPrice;
+            Items.UpdateShopItemPrice(TragedyClone, price: TragedyMaskPrice);
+            LoggerInstance.LogInfo($"Tragedy Mask price updated to {TragedyMaskPrice} credits");
+        }
+
+        public static byte CurrentVersionByte = 1;
+
+        public static void WriteData(FastBufferWriter writer)
+        {
+            writer.WriteByte(CurrentVersionByte);
+            writer.WriteBytes(BitConverter.GetBytes(ComedyMaskPriceLocal));
+            writer.WriteBytes(BitConverter.GetBytes(TragedyMaskPriceLocal));
+        }
+
+        public static void ReadData(FastBufferReader reader)
+        {
+            reader.ReadByte(out byte version);
+            if (version == CurrentVersionByte)
+            {
+                var cPriceBytes = new byte[4];
+                reader.ReadBytes(ref cPriceBytes, 4);
+                ComedyMaskPriceRemote = BitConverter.ToInt32(cPriceBytes, 0);
+                UpdateComedyPrice();
+                var tPriceBytes = new byte[4];
+                reader.ReadBytes(ref tPriceBytes, 4);
+                TragedyMaskPriceRemote = BitConverter.ToInt32(tPriceBytes, 0);
+                UpdateTragedyPrice();
+                LoggerInstance.LogInfo("Host config set successfully");
+                return;
+            }
+            throw new Exception("Invalid version byte");
+        }
+
+        public static void OnRequestSync(ulong clientID, FastBufferReader reader)
+        {
+            if (IsHost)
+            {
+                LoggerInstance.LogInfo("Sending config to client " + clientID.ToString());
+                FastBufferWriter writer = new FastBufferWriter(5, Allocator.Temp, 5);
+                try
+                {
+                    WriteData(writer);
+                    NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("BuyableHauntedMasks_OnReceiveConfigSync", clientID, writer, NetworkDelivery.Reliable);
+                }
+                catch (Exception ex)
+                {
+                    LoggerInstance.LogError($"Failed to send config: {ex}");
+                }
+                finally
+                {
+                    writer.Dispose();
+                }
+            }
+        }
+
+        public static void OnReceiveSync(ulong clientID, FastBufferReader reader)
+        {
+            LoggerInstance.LogInfo("Received config from host");
+            try
+            {
+                ReadData(reader);
+            }
+            catch (Exception ex)
+            {
+                LoggerInstance.LogError($"Failed to receive config: {ex}");
+                ComedyMaskPriceRemote = -1;
+                TragedyMaskPriceRemote = -1;
+            }
+        }
+
+        [HarmonyPatch]
+        internal static class Patches
+        {
+            [HarmonyPostfix]
+            [HarmonyPatch(typeof(PlayerControllerB), "ConnectClientToPlayerObject")]
+            public static void ServerConnect()
+            {
+                if (IsHost)
+                {
+                    LoggerInstance.LogInfo("Started hosting, using local settings");
+                    NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler("BuyableHauntedMasks_OnRequestConfigSync", OnRequestSync);
+                }
+                else
+                {
+                    LoggerInstance.LogInfo("Connected to server, requesting settings");
+                    NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler("BuyableHauntedMasks_OnReceiveConfigSync", OnReceiveSync);
+                    NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("BuyableHauntedMasks_OnRequestConfigSync", 0, new FastBufferWriter(0, Allocator.Temp), NetworkDelivery.Reliable);
+                }
+            }
+
+            [HarmonyPostfix]
+            [HarmonyPatch(typeof(GameNetworkManager), "StartDisconnect")]
+            public static void ServerDisconnect()
+            {
+                LoggerInstance.LogInfo("Server disconnect");
+                ComedyMaskPriceRemote = -1;
+                TragedyMaskPriceRemote = -1;
+            }
         }
     }
 }
