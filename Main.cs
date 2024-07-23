@@ -22,7 +22,7 @@ namespace BuyableHauntedMasks
     {
         private const string modGUID = "MegaPiggy.BuyableHauntedMasks";
         private const string modName = "Buyable Haunted Masks";
-        private const string modVersion = "1.1.0";
+        private const string modVersion = "1.2.0";
 
         private readonly Harmony harmony = new Harmony(modGUID);
 
