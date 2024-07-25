@@ -31,8 +31,8 @@ namespace BuyableHauntedMasks
         private static ManualLogSource LoggerInstance => Instance.Logger;
 
         public static List<Item> AllItems => Resources.FindObjectsOfTypeAll<Item>().Concat(UnityEngine.Object.FindObjectsByType<Item>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID)).ToList();
-        public static Item Comedy => AllItems.FirstOrDefault(item => item.name.Equals("ComedyMask"));
-        public static Item Tragedy => AllItems.FirstOrDefault(item => item.name.Equals("TragedyMask"));
+        public static Item Comedy => AllItems.FirstOrDefault(item => item.name.Equals("ComedyMask") && item.spawnPrefab != null);
+        public static Item Tragedy => AllItems.FirstOrDefault(item => item.name.Equals("TragedyMask") && item.spawnPrefab != null);
         public static Item ComedyClone { get; private set; }
         public static GameObject ComedyObjectClone { get; private set; }
         public static Item TragedyClone { get; private set; }
