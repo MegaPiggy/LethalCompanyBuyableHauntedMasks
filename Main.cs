@@ -289,6 +289,8 @@ namespace BuyableHauntedMasks
                 {
                     LoggerInstance.LogInfo("Started hosting, using local settings");
                     NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler("BuyableHauntedMasks_OnRequestConfigSync", OnRequestSync);
+                    UpdateComedyPrice();
+                    UpdateTragedyPrice();
                 }
                 else
                 {
