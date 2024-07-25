@@ -61,7 +61,7 @@ namespace BuyableHauntedMasks
             harmony.PatchAll();
             ComedyMaskPriceConfig = Config.Bind("Prices", "ComedyMaskPrice", 30, "Credits needed to buy comedy mask");
             TragedyMaskPriceConfig = Config.Bind("Prices", "TragedyMaskPrice", 30, "Credits needed to buy tragedy mask");
-            SceneManager.sceneLoaded += OnSceneLoaded;
+            //SceneManager.sceneLoaded += OnSceneLoaded;
             ComedyClone = MakeNonScrap(ComedyMaskPrice, "C");
             TragedyClone = MakeNonScrap(TragedyMaskPrice, "T");
             AddComedyToShop();
@@ -296,6 +296,15 @@ namespace BuyableHauntedMasks
                     NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler("BuyableHauntedMasks_OnReceiveConfigSync", OnReceiveSync);
                     NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("BuyableHauntedMasks_OnRequestConfigSync", 0, new FastBufferWriter(0, Allocator.Temp), NetworkDelivery.Reliable);
                 }
+            }
+
+            [HarmonyPostfix]
+            [HarmonyPatch(typeof(GameNetworkManager), "Start")]
+            public static void Start()
+            {
+                LoggerInstance.LogWarning("Game network manager start");
+                CloneComedy();
+                CloneTragedy();
             }
 
             [HarmonyPostfix]
