@@ -30,7 +30,8 @@ namespace BuyableHauntedMasks
 
         private static ManualLogSource LoggerInstance => Instance.Logger;
 
-        public static List<Item> AllItems => Resources.FindObjectsOfTypeAll<Item>().Reverse().ToList();
+        public static StartOfRound StartOfRound => StartOfRound.Instance;
+        public static List<Item> AllItems => StartOfRound.allItemsList.itemsList.ToList();
         public static Item Comedy => AllItems.FirstOrDefault(item => item.name.Equals("ComedyMask") && item.spawnPrefab != null);
         public static Item Tragedy => AllItems.FirstOrDefault(item => item.name.Equals("TragedyMask") && item.spawnPrefab != null);
         public static ClonedItem ComedyClone { get; private set; }
@@ -114,6 +115,8 @@ namespace BuyableHauntedMasks
 
         private static void CloneComedy()
         {
+            if (StartOfRound == null) return;
+            if (AllItems == null) return;
             if (Comedy == null) return;
             if (ComedyClone != null) return;
             ComedyClone = CloneNonScrap(Comedy, ComedyMaskPrice);
@@ -135,6 +138,8 @@ namespace BuyableHauntedMasks
 
         private static void CloneTragedy()
         {
+            if (StartOfRound == null) return;
+            if (AllItems == null) return;
             if (Tragedy == null) return;
             if (TragedyClone != null) return;
             TragedyClone = CloneNonScrap(Tragedy, TragedyMaskPrice);
@@ -254,10 +259,10 @@ namespace BuyableHauntedMasks
             }
 
             [HarmonyPostfix]
-            [HarmonyPatch(typeof(GameNetworkManager), "Start")]
-            public static void Start()
+            [HarmonyPatch(typeof(StartOfRound), "Awake")]
+            public static void Awake()
             {
-                LoggerInstance.LogWarning("Game network manager start");
+                LoggerInstance.LogWarning("Start of round awake");
                 CloneComedy();
                 CloneTragedy();
             }
