@@ -34,9 +34,7 @@ namespace BuyableHauntedMasks
         public static Item Comedy => AllItems.FirstOrDefault(item => item.name.Equals("ComedyMask") && item.spawnPrefab != null);
         public static Item Tragedy => AllItems.FirstOrDefault(item => item.name.Equals("TragedyMask") && item.spawnPrefab != null);
         public static ClonedItem ComedyClone { get; private set; }
-        public static GameObject ComedyObjectClone { get; private set; }
         public static ClonedItem TragedyClone { get; private set; }
-        public static GameObject TragedyObjectClone { get; private set; }
 
 
         private static ConfigEntry<int> ComedyMaskPriceConfig;
@@ -61,11 +59,6 @@ namespace BuyableHauntedMasks
             harmony.PatchAll();
             ComedyMaskPriceConfig = Config.Bind("Prices", "ComedyMaskPrice", 30, "Credits needed to buy comedy mask");
             TragedyMaskPriceConfig = Config.Bind("Prices", "TragedyMaskPrice", 30, "Credits needed to buy tragedy mask");
-            //SceneManager.sceneLoaded += OnSceneLoaded;
-            ComedyClone = MakeNonScrap(ComedyMaskPrice, "C");
-            TragedyClone = MakeNonScrap(TragedyMaskPrice, "T");
-            AddComedyToShop();
-            AddTragedyToShop();
             Logger.LogInfo($"Plugin {modName} is loaded with version {modVersion}!");
         }
 
@@ -74,61 +67,12 @@ namespace BuyableHauntedMasks
             public Item original;
         }
 
-        private static ClonedItem MakeNonScrap(int price, string name = "")
+        private static ClonedItem CloneNonScrap(Item original, int price)
         {
-            ClonedItem nonScrap = ScriptableObject.CreateInstance<ClonedItem>();
-            DontDestroyOnLoad(nonScrap);
-            nonScrap.name = "Error";
-            nonScrap.itemName = "Error";
-            nonScrap.itemId = 6624;
-            nonScrap.isScrap = false;
-            nonScrap.creditsWorth = price;
-            nonScrap.canBeGrabbedBeforeGameStart = true;
-            nonScrap.automaticallySetUsingPower = false;
-            nonScrap.batteryUsage = 300;
-            nonScrap.canBeInspected = false;
-            nonScrap.isDefensiveWeapon = true;
-            nonScrap.saveItemVariable = true;
-            nonScrap.syncGrabFunction = false;
-            nonScrap.twoHandedAnimation = true;
-            nonScrap.verticalOffset = 0.25f;
-            var prefab = LethalLib.Modules.NetworkPrefabs.CreateNetworkPrefab("Cube" + name);
-            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.transform.SetParent(prefab.transform, false);
-            cube.GetComponent<MeshRenderer>().sharedMaterial.shader = Shader.Find("HDRP/Lit");
-            prefab.AddComponent<BoxCollider>().size = Vector3.one * 2;
-            prefab.AddComponent<AudioSource>();
-            var prop = prefab.AddComponent<PhysicsProp>();
-            prop.itemProperties = nonScrap;
-            prop.grabbable = true;
-            nonScrap.spawnPrefab = prefab;
-            prefab.tag = "PhysicsProp";
-            prefab.layer = LayerMask.NameToLayer("Props");
-            cube.layer = LayerMask.NameToLayer("Props");
-            try
-            {
-                GameObject scanNode = GameObject.Instantiate<GameObject>(Items.scanNodePrefab, prefab.transform);
-                scanNode.name = "ScanNode";
-                scanNode.transform.localPosition = new Vector3(0f, 0f, 0f);
-                scanNode.transform.localScale *= 2;
-                ScanNodeProperties properties = scanNode.GetComponent<ScanNodeProperties>();
-                properties.nodeType = 1;
-                properties.headerText = "Error";
-                properties.subText = $"A mod is incompatible with {modName}";
-            }
-            catch (Exception e)
-            {
-                LoggerInstance.LogError(e.ToString());
-            }
-            prefab.transform.localScale = Vector3.one / 2;
-            return nonScrap;
-        }
-
-        private static GameObject CloneNonScrap(Item original, ClonedItem clone, int price)
-        {
-            GameObject.Destroy(clone.spawnPrefab);
+            ClonedItem clone = ScriptableObject.CreateInstance<ClonedItem>();
+            DontDestroyOnLoad(clone);
             clone.original = original;
-            var prefab = NetworkPrefabs.CloneNetworkPrefab(original.spawnPrefab);
+            var prefab = NetworkPrefabs.CloneNetworkPrefab(original.spawnPrefab, "Buyable" + original.name);
             prefab.AddComponent<Unflagger>();
             DontDestroyOnLoad(prefab);
             CopyFields(original, clone);
@@ -136,7 +80,8 @@ namespace BuyableHauntedMasks
             clone.spawnPrefab = prefab;
             clone.name = "Buyable" + original.name;
             clone.creditsWorth = price;
-            return prefab;
+            clone.isScrap = false;
+            return clone;
         }
 
         public static void CopyFields(Item source, Item destination)
@@ -170,8 +115,9 @@ namespace BuyableHauntedMasks
         private static void CloneComedy()
         {
             if (Comedy == null) return;
-            if (ComedyObjectClone != null) return;
-            ComedyObjectClone = CloneNonScrap(Comedy, ComedyClone, ComedyMaskPrice);
+            if (ComedyClone != null) return;
+            ComedyClone = CloneNonScrap(Comedy, ComedyMaskPrice);
+            AddComedyToShop();
         }
 
         private static void AddComedyToShop()
@@ -190,8 +136,9 @@ namespace BuyableHauntedMasks
         private static void CloneTragedy()
         {
             if (Tragedy == null) return;
-            if (TragedyObjectClone != null) return;
-            TragedyObjectClone = CloneNonScrap(Tragedy, TragedyClone, TragedyMaskPrice);
+            if (TragedyClone != null) return;
+            TragedyClone = CloneNonScrap(Tragedy, TragedyMaskPrice);
+            AddTragedyToShop();
         }
 
         private static void AddTragedyToShop()
