@@ -33,9 +33,9 @@ namespace BuyableHauntedMasks
         public static List<Item> AllItems => Resources.FindObjectsOfTypeAll<Item>().Reverse().ToList();
         public static Item Comedy => AllItems.FirstOrDefault(item => item.name.Equals("ComedyMask") && item.spawnPrefab != null);
         public static Item Tragedy => AllItems.FirstOrDefault(item => item.name.Equals("TragedyMask") && item.spawnPrefab != null);
-        public static Item ComedyClone { get; private set; }
+        public static ClonedItem ComedyClone { get; private set; }
         public static GameObject ComedyObjectClone { get; private set; }
-        public static Item TragedyClone { get; private set; }
+        public static ClonedItem TragedyClone { get; private set; }
         public static GameObject TragedyObjectClone { get; private set; }
 
 
@@ -69,9 +69,14 @@ namespace BuyableHauntedMasks
             Logger.LogInfo($"Plugin {modName} is loaded with version {modVersion}!");
         }
 
-        private static Item MakeNonScrap(int price, string name = "")
+        public class ClonedItem : Item
         {
-            Item nonScrap = ScriptableObject.CreateInstance<Item>();
+            public Item original;
+        }
+
+        private static ClonedItem MakeNonScrap(int price, string name = "")
+        {
+            ClonedItem nonScrap = ScriptableObject.CreateInstance<ClonedItem>();
             DontDestroyOnLoad(nonScrap);
             nonScrap.name = "Error";
             nonScrap.itemName = "Error";
@@ -119,9 +124,10 @@ namespace BuyableHauntedMasks
             return nonScrap;
         }
 
-        private static GameObject CloneNonScrap(Item original, Item clone, int price)
+        private static GameObject CloneNonScrap(Item original, ClonedItem clone, int price)
         {
             GameObject.Destroy(clone.spawnPrefab);
+            clone.original = original;
             var prefab = NetworkPrefabs.CloneNetworkPrefab(original.spawnPrefab);
             prefab.AddComponent<Unflagger>();
             DontDestroyOnLoad(prefab);
