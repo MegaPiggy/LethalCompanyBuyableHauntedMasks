@@ -1,8 +1,10 @@
 {
+  "$schema": "https://raw.githubusercontent.com/MegaPiggy/thunderstore.manifest/main/v1/r2modman/schema.json",
   "name": "BuyableHauntedMasks",
   "version_number": "1.3.0",
   "website_url": "https://github.com/MegaPiggy/LethalCompanyBuyableHauntedMasks",
   "description": "Adds both comedy and tragedy mask to the store each for 30 credits (Configurable)",
+  "author": "MegaPiggy",
   "dependencies": [
     "BepInEx-BepInExPack-5.4.2100",
     "Evaisa-LethalLib-0.13.2",
